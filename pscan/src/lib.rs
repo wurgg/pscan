@@ -27,4 +27,11 @@ impl Target {
     pub fn scan(self) -> scanner::ScanResult {
         scanner::start(self)
     }
+
+    pub fn module(mut self, module_name: String) -> Target {
+        self.module = Some(module_name);
+        self
+    }
 }
+
+

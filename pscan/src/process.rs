@@ -9,23 +9,33 @@ use std::ffi::c_void;
 pub fn get_proc_id(proc_name: String) -> u32 {
     unsafe {
     let mut proc_id: u32 = 0;
+
+    // Create snap of all processes
     let mut h_snap = windows::Win32::System::Diagnostics::ToolHelp::CreateToolhelp32Snapshot(
         TH32CS_SNAPPROCESS,
         0,
     );
+
+    // Make sure the snap is valid
     let h_snap = match h_snap {
         Ok(t) => t,
-        Err(e) => panic!("eror {}", e),
+        Err(e) => panic!("error {}", e),
     };
     
+    // Set up our varible to hold data returned by toolhelp when a match is found
     let mut proc_entry: PROCESSENTRY32 = PROCESSENTRY32 {
         ..PROCESSENTRY32::default()
     };
     
+    // set size of type in dwSize field
     proc_entry.dwSize = std::mem::size_of::<PROCESSENTRY32>() as u32;
+
+    // set up pointer to use in Process32First (winapi)
     let entry_ptr = &mut proc_entry as *mut PROCESSENTRY32;
     
+    // Did we successfully get the first process?
     if windows::Win32::System::Diagnostics::ToolHelp::Process32First(h_snap, entry_ptr).as_bool() {
+        // We successfully got the first process from the snapshot, lets loop over them
         loop {
             // format process name returned by processentry32.szExeFile string for comparison
             let proc_exe_string: String = proc_entry.szExeFile.iter().take_while(|e| e.0 != 0).map(|e| e.0 as char).collect();
@@ -46,6 +56,56 @@ pub fn get_proc_id(proc_name: String) -> u32 {
     CloseHandle(h_snap);
     return proc_id; 
 }
+}
+
+pub fn get_module(pid: u32, module_name: String) -> windows::Win32::System::Diagnostics::ToolHelp::MODULEENTRY32 {
+    unsafe {
+        // Create snap of a specific process specified by pid argument
+        let mut h_snap = windows::Win32::System::Diagnostics::ToolHelp::CreateToolhelp32Snapshot(
+            TH32CS_SNAPPROCESS,
+            pid,
+        );
+
+        // Make sure the snap is valid
+        let h_snap = match h_snap {
+            Ok(t) => t,
+            Err(e) => panic!("error {}", e),
+        };
+
+        // Setup our var to hold the moduleentry32 if a match is made
+        let mut me32: MODULEENTRY32 = MODULEENTRY32 {
+            ..MODULEENTRY32::default()
+        };
+
+        // Setup the size as required by winapi
+        me32.dwSize = std::mem::size_of::<MODULEENTRY32>() as u32;
+
+        // set up pointer to use in Module32First (winapi)
+    let entry_ptr = &mut me32 as *mut MODULEENTRY32;
+
+    // Did we successfully get the first process?
+    if windows::Win32::System::Diagnostics::ToolHelp::Module32First(h_snap, entry_ptr).as_bool() {
+        // We successfully got the first process from the snapshot, lets loop over them
+        loop {
+            // format process name returned by processentry32.szExeFile string for comparison
+            let module_string: String = me32.szModule.iter().take_while(|e| e.0 != 0).map(|e| e.0 as char).collect();
+
+            // Do we have a match?
+            if module_string.eq(&module_name) {
+                println!("\n[][][] WE HAVE A MATCH [][][]\n{} : {}\n=============================\n", module_name, module_string);
+                break;
+            }
+
+            // as long as there is another module in the snapshot...
+            if !Module32Next(h_snap, entry_ptr).as_bool() {
+                break;
+            }
+        }
+    }
+    CloseHandle(h_snap);
+
+    return me32
+    }
 }
 
 pub fn get_handle(pid: u32) -> Result<HANDLE, windows::core::Error> {

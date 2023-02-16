@@ -57,8 +57,18 @@ fn init_scanner(method: &Method) -> Box<dyn Scanner>{
 pub  fn start(target: Target) -> ScanResult{
     let mut scan_result = ScanResult::new(target);
 
-    // Get module
-    // Get Scan range (addresses)
+    // Is there a module provided?
+    if scan_result.module.is_some() {
+        println!("a module was specified...\n");
+        // Yes, let's unwrap
+        let mod_name = scan_result.module.clone().unwrap();
+        // Get module
+        let me32 = get_module(&scan_result.pid, &mod_name);
+        let formated_mod_name: String = me32.szModule.iter().take_while(|e| e.0 != 0).map(|e| e.0 as char).collect();
+        println!("module name: {} size: {}, base addr: {:?}, baseSize: {}, id: {}\n", formated_mod_name, me32.dwSize, me32.modBaseAddr, me32.modBaseSize, me32.th32ModuleID)
+        // Get Scan range (addresses)
+    }
+
 
 
     // get HANDLE

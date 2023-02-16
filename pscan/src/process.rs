@@ -1,7 +1,7 @@
 use windows::Win32::Foundation::{CHAR, CloseHandle, GetLastError};
 use windows::Win32::Foundation::{HANDLE, BOOL, INVALID_HANDLE_VALUE};
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
-use windows::Win32::System::Diagnostics::ToolHelp::{PROCESSENTRY32, MODULEENTRY32, TH32CS_SNAPPROCESS, Process32First, Process32Next, Module32First, Module32Next, CreateToolhelp32Snapshot, CREATE_TOOLHELP_SNAPSHOT_FLAGS, Toolhelp32ReadProcessMemory};
+use windows::Win32::System::Diagnostics::ToolHelp::{PROCESSENTRY32, MODULEENTRY32, TH32CS_SNAPPROCESS, Process32First, Process32Next, Module32First, Module32Next, CreateToolhelp32Snapshot, CREATE_TOOLHELP_SNAPSHOT_FLAGS, Toolhelp32ReadProcessMemory, TH32CS_SNAPMODULE};
 use windows::Win32::System::Threading::{PROCESS_ALL_ACCESS, OpenProcess};
 use std::ffi::c_void;
 
@@ -58,12 +58,12 @@ pub fn get_proc_id(proc_name: String) -> u32 {
 }
 }
 
-pub fn get_module(pid: u32, module_name: String) -> windows::Win32::System::Diagnostics::ToolHelp::MODULEENTRY32 {
+pub fn get_module(pid: &u32, module_name: &String) -> windows::Win32::System::Diagnostics::ToolHelp::MODULEENTRY32 {
     unsafe {
         // Create snap of a specific process specified by pid argument
-        let mut h_snap = windows::Win32::System::Diagnostics::ToolHelp::CreateToolhelp32Snapshot(
-            TH32CS_SNAPPROCESS,
-            pid,
+        let h_snap = windows::Win32::System::Diagnostics::ToolHelp::CreateToolhelp32Snapshot(
+            TH32CS_SNAPPROCESS | TH32CS_SNAPMODULE,
+            *pid,
         );
 
         // Make sure the snap is valid
@@ -81,17 +81,18 @@ pub fn get_module(pid: u32, module_name: String) -> windows::Win32::System::Diag
         me32.dwSize = std::mem::size_of::<MODULEENTRY32>() as u32;
 
         // set up pointer to use in Module32First (winapi)
-    let entry_ptr = &mut me32 as *mut MODULEENTRY32;
-
+        let entry_ptr = &mut me32 as *mut MODULEENTRY32;
+    
+    println!("trying to get module...");
     // Did we successfully get the first process?
     if windows::Win32::System::Diagnostics::ToolHelp::Module32First(h_snap, entry_ptr).as_bool() {
         // We successfully got the first process from the snapshot, lets loop over them
         loop {
             // format process name returned by processentry32.szExeFile string for comparison
             let module_string: String = me32.szModule.iter().take_while(|e| e.0 != 0).map(|e| e.0 as char).collect();
-
+            println!("trying module: {:?}\n", module_string);
             // Do we have a match?
-            if module_string.eq(&module_name) {
+            if module_string.eq(module_name) {
                 println!("\n[][][] WE HAVE A MATCH [][][]\n{} : {}\n=============================\n", module_name, module_string);
                 break;
             }
@@ -103,7 +104,6 @@ pub fn get_module(pid: u32, module_name: String) -> windows::Win32::System::Diag
         }
     }
     CloseHandle(h_snap);
-
     return me32
     }
 }

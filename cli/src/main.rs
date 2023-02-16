@@ -1,7 +1,7 @@
 fn main() {
     println!("Hello, world!");
     let result = pscan::new(String::from("Notepad.exe"), String::from("patty"), String::from("masky"))
-    .module(String::from("Noppy.exe"))
+    .module(String::from("Notepad.exe"))
     .scan();
     println!("done");
     println!("\nResult:\n\nprocess: {}\nmodule: {:?}\npid: {}\npattern: {}\nmask: {}\nfound: {}\nfound_at: {}\n",

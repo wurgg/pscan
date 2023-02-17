@@ -43,7 +43,7 @@ pub fn get_proc_id(proc_name: String) -> u32 {
             // Do we have a match?
             if proc_exe_string.eq(&proc_name) {
                 proc_id = proc_entry.th32ProcessID;
-                println!("\n[][][] WE HAVE A MATCH [][][]\n{} : {}\n=============================\n", proc_name, proc_exe_string);
+                println!("[{}] found with process id of [{}]", proc_name, proc_id);
                 break;
             }
 
@@ -83,17 +83,15 @@ pub fn get_module(pid: &u32, module_name: &String) -> windows::Win32::System::Di
         // set up pointer to use in Module32First (winapi)
         let entry_ptr = &mut me32 as *mut MODULEENTRY32;
     
-    println!("trying to get module...");
     // Did we successfully get the first process?
     if windows::Win32::System::Diagnostics::ToolHelp::Module32First(h_snap, entry_ptr).as_bool() {
         // We successfully got the first process from the snapshot, lets loop over them
         loop {
             // format process name returned by processentry32.szExeFile string for comparison
             let module_string: String = me32.szModule.iter().take_while(|e| e.0 != 0).map(|e| e.0 as char).collect();
-            println!("trying module: {:?}\n", module_string);
             // Do we have a match?
             if module_string.eq(module_name) {
-                println!("\n[][][] WE HAVE A MATCH [][][]\n{} : {}\n=============================\n", module_name, module_string);
+                println!("Module [{}] found within process with base address of [{:?}]", module_name, me32.modBaseAddr);
                 break;
             }
 

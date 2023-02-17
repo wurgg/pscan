@@ -9,7 +9,7 @@ use bruteforce::Bruteforce;
 mod algo1;
 mod bruteforce;
 
-pub struct ScanResult{
+pub struct ScanResult {
     pub process_name: String,
     pub module: Option<String>,
     pub pid: u32,
@@ -55,30 +55,40 @@ fn init_scanner(method: &Method) -> Box<dyn Scanner>{
 }
 
 pub  fn start(target: Target) -> ScanResult{
+    // Init scan result
     let mut scan_result = ScanResult::new(target);
+
+    // process not found, just end the scan
+    if scan_result.pid == 0 {
+        println!("ERROR! Could not find process by the name of: {}", scan_result.process_name);
+        return scan_result;
+    }
 
     // Is there a module provided?
     if scan_result.module.is_some() {
-        println!("a module was specified...\n");
         // Yes, let's unwrap
         let mod_name = scan_result.module.clone().unwrap();
+        println!("Looking for module [{}]", mod_name);
         // Get module
         let me32 = get_module(&scan_result.pid, &mod_name);
-        let formated_mod_name: String = me32.szModule.iter().take_while(|e| e.0 != 0).map(|e| e.0 as char).collect();
-        println!("module name: {} size: {}, base addr: {:?}, baseSize: {}, id: {}\n", formated_mod_name, me32.dwSize, me32.modBaseAddr, me32.modBaseSize, me32.th32ModuleID)
         // Get Scan range (addresses)
     }
-
-
+    else {
+        print!("No module was specified...\n");
+    }
 
     // get HANDLE
     let HANDLE = get_handle(scan_result.pid);
 
+    // RPM
+
     // construct data chunks
     let memory_chunks = vec!["1", "2", "3"];
 
+    // init scanner
     let scanner = init_scanner(&scan_result.method);
 
+    // scan chunks
     for chunk in &memory_chunks{
         scanner.run(&chunk);
     }

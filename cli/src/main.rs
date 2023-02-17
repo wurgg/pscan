@@ -1,16 +1,15 @@
 fn main() {
-    println!("Hello, world!");
+    println!("Scan started...");
     let result = pscan::new(String::from("Notepad.exe"), String::from("patty"), String::from("masky"))
-    .module(String::from("Notepad.exe"))
+    //.module(String::from("Notepad.exe"))
     .scan();
-    println!("done");
-    println!("\nResult:\n\nprocess: {}\nmodule: {:?}\npid: {}\npattern: {}\nmask: {}\nfound: {}\nfound_at: {}\n",
+    println!("\n\t\t[Result]\n\tprocess: {}\n\tpid: {}\n\tmodule: {}\n\tpattern: {}\n\tmask: {}\n\tfound: {}\n\tfound_at: {}",
         result.process_name,
-        result.module,
         result.pid,
+        result.module.unwrap_or(String::from("<not specified>")),
         result.pattern,
         result.mask,
         result.pattern_found,
         result.pattern_found_at);
-    println!("Goodbye, world!");
+        println!("\n");
 }

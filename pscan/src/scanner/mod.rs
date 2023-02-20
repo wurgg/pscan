@@ -75,9 +75,8 @@ pub  fn start(target: Target) -> ScanResult{
         match get_module(&scan_result.pid, &mod_name) {
             Ok(me32) => {
             // Get Scan range (addresses)
-
             println!("base:  {:?}", me32.modBaseAddr);
-            println!("size: {}",   e32.modBaseSize, );
+            println!("size: {}",   me32.modBaseSize, );
             println!("base + size: {:?}", unsafe{ me32.modBaseAddr.offset(me32.modBaseSize.try_into().unwrap())});
             },
             Err(e) => {

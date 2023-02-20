@@ -1,3 +1,4 @@
+#![feature(pointer_byte_offsets)]
 use crate::Target;
 use crate::process;
 use crate::process::get_handle;
@@ -5,6 +6,7 @@ use crate::process::get_module;
 use crate::scan_type::*;
 use algo1::Algo1;
 use bruteforce::Bruteforce;
+use windows::Win32::System::Diagnostics::ToolHelp::MODULEENTRY32;
 
 mod algo1;
 mod bruteforce;
@@ -18,8 +20,8 @@ pub struct ScanResult {
     pub mask: String,
     pub pattern_found: bool,
     pub pattern_found_at: String,
-    pub start_at: String,
-    pub end_at: String,
+    pub start_address: u32,
+    pub end_address: String,
     pub bytes_scanned: u32,
     // stats...
 }
@@ -35,8 +37,8 @@ impl ScanResult{
             mask: target.mask,
             pattern_found: false,
             pattern_found_at: String::from("0xNOTFOUND"),
-            start_at: String::from("0x0"),
-            end_at: String::from("0xFFFFFFFFF"),
+            start_address: 0,
+            end_address: String::from("0xFFFFFFFFF"),
             bytes_scanned: 0,
         }
     }
@@ -60,7 +62,7 @@ pub  fn start(target: Target) -> ScanResult{
 
     // process not found, just end the scan
     if scan_result.pid == 0 {
-        println!("ERROR! Could not find process by the name of: {}", scan_result.process_name);
+        println!("Scan failed: Could not find process by the name of: {}", scan_result.process_name);
         return scan_result;
     }
 
@@ -68,10 +70,21 @@ pub  fn start(target: Target) -> ScanResult{
     if scan_result.module.is_some() {
         // Yes, let's unwrap
         let mod_name = scan_result.module.clone().unwrap();
-        println!("Looking for module [{}]", mod_name);
+        println!("Looking for module [{}] within process [{} ({})]", mod_name, scan_result.process_name, scan_result.pid);
         // Get module
-        let me32 = get_module(&scan_result.pid, &mod_name);
-        // Get Scan range (addresses)
+        match get_module(&scan_result.pid, &mod_name) {
+            Ok(me32) => {
+            // Get Scan range (addresses)
+
+            println!("base:  {:?}", me32.modBaseAddr);
+            println!("size: {}",   e32.modBaseSize, );
+            println!("base + size: {:?}", unsafe{ me32.modBaseAddr.offset(me32.modBaseSize.try_into().unwrap())});
+            },
+            Err(e) => {
+                println!("Scan failed: {}", e.error);    
+                return scan_result
+            },
+        }
     }
     else {
         print!("No module was specified...\n");

@@ -19,16 +19,17 @@ pub struct ScanResult {
     pub pattern: String,
     pub mask: String,
     pub pattern_found: bool,
-    pub pattern_found_at: String,
-    pub start_address: u32,
-    pub end_address: String,
+    pub pattern_found_at: usize,
+    pub size: u32,
+    pub start_address: usize,
+    pub end_address: usize,
     pub bytes_scanned: u32,
     // stats...
 }
 
 impl ScanResult{
     pub fn new(target: Target) -> ScanResult{
-        ScanResult {
+       let result = ScanResult {
             process_name: target.process_name.clone(),
             module: target.module,
             method: target.method,
@@ -36,11 +37,48 @@ impl ScanResult{
             pattern: target.pattern,
             mask: target.mask,
             pattern_found: false,
-            pattern_found_at: String::from("0xNOTFOUND"),
+            pattern_found_at: 0,
+            size: 0,
             start_address: 0,
-            end_address: String::from("0xFFFFFFFFF"),
+            end_address: 0,
             bytes_scanned: 0,
+        };
+            // process not found, just end the scan
+        if result.pid == 0 {
+            println!("Scan failed: Could not find process by the name of: {}", result.process_name);
+            return result;
+         }
+        
+        return result.get_scan_range();
+    }
+
+    fn get_scan_range(mut self) -> ScanResult {
+    // Is there a module provided?
+    if self.module.is_some() {
+        // Yes, let's unwrap
+        let mod_name = self.module.clone().unwrap();
+        println!("Looking for module [{}] within process [{} ({})]", mod_name, self.process_name, self.pid);
+        // Get module
+        match get_module(&self.pid, &mod_name) {
+            Ok(me32) => {
+            // Get Scan range (addresses)
+            println!("base:  {:?}", me32.modBaseAddr);
+            self.start_address = me32.modBaseAddr as usize;
+            println!("size: {}",   me32.modBaseSize, );
+            self.size = me32.modBaseSize;
+            println!("base + size: {:?}", unsafe{ me32.modBaseAddr.offset(me32.modBaseSize.try_into().unwrap())});
+            self.end_address = unsafe { me32.modBaseAddr.offset(me32.modBaseSize.try_into().unwrap())}  as usize;
+            },
+            Err(e) => {
+                println!("Scan failed: {}", e.error);    
+                return self
+            },
         }
+    }
+    else {
+        print!("No module was specified...\n");
+    }
+        self
     }
 }
 
@@ -56,43 +94,17 @@ fn init_scanner(method: &Method) -> Box<dyn Scanner>{
     }
 }
 
+
 pub  fn start(target: Target) -> ScanResult{
     // Init scan result
     let mut scan_result = ScanResult::new(target);
 
-    // process not found, just end the scan
-    if scan_result.pid == 0 {
-        println!("Scan failed: Could not find process by the name of: {}", scan_result.process_name);
-        return scan_result;
-    }
-
-    // Is there a module provided?
-    if scan_result.module.is_some() {
-        // Yes, let's unwrap
-        let mod_name = scan_result.module.clone().unwrap();
-        println!("Looking for module [{}] within process [{} ({})]", mod_name, scan_result.process_name, scan_result.pid);
-        // Get module
-        match get_module(&scan_result.pid, &mod_name) {
-            Ok(me32) => {
-            // Get Scan range (addresses)
-            println!("base:  {:?}", me32.modBaseAddr);
-            println!("size: {}",   me32.modBaseSize, );
-            println!("base + size: {:?}", unsafe{ me32.modBaseAddr.offset(me32.modBaseSize.try_into().unwrap())});
-            },
-            Err(e) => {
-                println!("Scan failed: {}", e.error);    
-                return scan_result
-            },
-        }
-    }
-    else {
-        print!("No module was specified...\n");
-    }
-
-    // get HANDLE
+    // [1] get HANDLE
     let HANDLE = get_handle(scan_result.pid);
 
-    // RPM
+    // [2] Virtual protect ex
+    // [3] Read process memory
+    // [4] Virtual protext ex (restore)
 
     // construct data chunks
     let memory_chunks = vec!["1", "2", "3"];

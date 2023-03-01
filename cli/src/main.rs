@@ -1,4 +1,9 @@
+use std::io;
 fn main() {
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).expect("Failed to read line");
+    println!("You pressed: {}", input);
+
     println!("Scan started...");
     if let Ok(result) = pscan::new(String::from("Notepad.exe"), String::from("patty"), String::from("masky"))
     .module(String::from("Notepad.exe"))
@@ -17,5 +22,4 @@ fn main() {
             result.end_address);
             println!("\n");
     }
-
 }

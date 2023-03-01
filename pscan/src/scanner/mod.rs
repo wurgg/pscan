@@ -7,7 +7,12 @@ use crate::process::get_module;
 use crate::scan_type::*;
 use algo1::Algo1;
 use bruteforce::Bruteforce;
+use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::Diagnostics::ToolHelp::MODULEENTRY32;
+use windows::Win32::System::Memory::PAGE_EXECUTE_READWRITE;
+use windows::Win32::System::Memory::PAGE_PROTECTION_FLAGS;
+use windows::Win32::System::Memory::VirtualProtectEx;
+use core::ffi::c_void;
 
 mod algo1;
 mod bruteforce;
@@ -107,20 +112,39 @@ fn init_scanner(method: &Method) -> Box<dyn Scanner>{
 
 pub  fn start(target: Target) -> Result<ScanResult, ScanError>{
     // Init scan result
-    let new_result = ScanResult::new(target);
+    let new_scan_result = ScanResult::new(target);
 
-    if let Err(e) = new_result {
-        return Err(ScanError { Error: String::from("Failed to start scan...\n") });
+    // Something went wrong with initializing the scan result
+    if let Err(e) = new_scan_result {
+        return Err(e);
     };
 
-    let mut scan_result = new_result.unwrap();
+    let scan_result = new_scan_result.unwrap();
     // [1] get HANDLE
-    let HANDLE = get_handle(scan_result.pid);
-
+    let H = get_handle(scan_result.pid);
+    // setup re-used vars
+    let HANDLE = H.unwrap_or_default();
+    let start_address = unsafe{ &*(scan_result.start_address as *const c_void) };
+    let size = usize::try_from(scan_result.size).unwrap();
+    let mut vprotect = PAGE_PROTECTION_FLAGS::default();
+    let ptr_vprotect = &mut vprotect as *mut PAGE_PROTECTION_FLAGS;
+    let mut bytes_buffer = vec!['0', '0', '0'];
+    let ptr_bytes_buffer = bytes_buffer.as_mut_ptr() as *mut c_void;
+    //let number_of_bytes_read:Option<*mut usize> = None;
     // [2] Virtual protect ex
+    println!("vprotect 1");
+    unsafe { VirtualProtectEx(HANDLE, start_address, size, PAGE_EXECUTE_READWRITE, ptr_vprotect);}
     // [3] Read process memory
-    // [4] Virtual protext ex (restore)
+    println!("vprotect 2");
 
+    //unsafe { ReadProcessMemory(HANDLE, start_address, ptr_bytes_buffer, size, None) };
+    // [4] Virtual protext ex (restore)
+    println!("vprotect 3");
+
+    unsafe { VirtualProtectEx(HANDLE, start_address, size, vprotect, ptr_vprotect);}
+    println!("vprotect 4");
+    
+    //println!("bytes read: {:?}\n", number_of_bytes_read.unwrap());
     // construct data chunks
     let memory_chunks = vec!["1", "2", "3"];
 
@@ -131,6 +155,7 @@ pub  fn start(target: Target) -> Result<ScanResult, ScanError>{
     for chunk in &memory_chunks{
         scanner.run(&chunk);
     }
+
     Ok(scan_result)
 }
 

@@ -1,6 +1,7 @@
 #![feature(pointer_byte_offsets)]
 use crate::Target;
 use crate::process;
+use crate::process::ProcessError;
 use crate::process::get_handle;
 use crate::process::get_module;
 use crate::scan_type::*;
@@ -10,6 +11,11 @@ use windows::Win32::System::Diagnostics::ToolHelp::MODULEENTRY32;
 
 mod algo1;
 mod bruteforce;
+
+#[derive(Debug)]
+pub struct ScanError {
+    pub Error: String
+}
 
 pub struct ScanResult {
     pub process_name: String,
@@ -28,7 +34,7 @@ pub struct ScanResult {
 }
 
 impl ScanResult{
-    pub fn new(target: Target) -> ScanResult{
+    pub fn new(target: Target) -> Result<ScanResult, ScanError>{
        let result = ScanResult {
             process_name: target.process_name.clone(),
             module: target.module,
@@ -46,13 +52,16 @@ impl ScanResult{
             // process not found, just end the scan
         if result.pid == 0 {
             println!("Scan failed: Could not find process by the name of: {}", result.process_name);
-            return result;
+            return Err( ScanError { Error: String::from("Could not find the process with the specified name.") });
          }
         
-        return result.get_scan_range();
+        match result.get_scan_range() {
+            Ok(res) => return Ok(res), 
+            Err(e) => return Err(ScanError { Error: String::from(e.error) }),
+        }
     }
 
-    fn get_scan_range(mut self) -> ScanResult {
+    fn get_scan_range(mut self) -> Result<ScanResult, ProcessError> {
     // Is there a module provided?
     if self.module.is_some() {
         // Yes, let's unwrap
@@ -71,14 +80,15 @@ impl ScanResult{
             },
             Err(e) => {
                 println!("Scan failed: {}", e.error);    
-                return self
+                return Err(e);
             },
         }
     }
     else {
         print!("No module was specified...\n");
+        // figure out entire proc size?
     }
-        self
+        Ok(self)
     }
 }
 
@@ -95,10 +105,15 @@ fn init_scanner(method: &Method) -> Box<dyn Scanner>{
 }
 
 
-pub  fn start(target: Target) -> ScanResult{
+pub  fn start(target: Target) -> Result<ScanResult, ScanError>{
     // Init scan result
-    let mut scan_result = ScanResult::new(target);
+    let new_result = ScanResult::new(target);
 
+    if let Err(e) = new_result {
+        return Err(ScanError { Error: String::from("Failed to start scan...\n") });
+    };
+
+    let mut scan_result = new_result.unwrap();
     // [1] get HANDLE
     let HANDLE = get_handle(scan_result.pid);
 
@@ -116,7 +131,7 @@ pub  fn start(target: Target) -> ScanResult{
     for chunk in &memory_chunks{
         scanner.run(&chunk);
     }
-    scan_result
+    Ok(scan_result)
 }
 
 

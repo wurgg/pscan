@@ -3,6 +3,7 @@ mod scanner;
 mod process;
 pub mod scan_type;
 use scan_type::Method;
+use scanner::ScanError;
 
 
 pub fn new(process_name: String, pattern: String, mask: String) -> Target {
@@ -24,7 +25,7 @@ pub struct Target {
 }
 
 impl Target {
-    pub fn scan(self) -> scanner::ScanResult {
+    pub fn scan(self) -> Result<scanner::ScanResult, ScanError> {
         scanner::start(self)
     }
 

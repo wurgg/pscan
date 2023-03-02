@@ -7,6 +7,8 @@ use crate::process::get_module;
 use crate::scan_type::*;
 use algo1::Algo1;
 use bruteforce::Bruteforce;
+use windows::Win32::Foundation::CloseHandle;
+use windows::Win32::Foundation::GetLastError;
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::Diagnostics::ToolHelp::MODULEENTRY32;
 use windows::Win32::System::Memory::PAGE_EXECUTE_READWRITE;
@@ -121,27 +123,33 @@ pub  fn start(target: Target) -> Result<ScanResult, ScanError>{
 
     let scan_result = new_scan_result.unwrap();
     // [1] get HANDLE
-    let H = get_handle(scan_result.pid);
+    let HANDLE = match get_handle(scan_result.pid) {
+        Ok(handle) => handle,
+        Err(e) => panic!("Failed to get handle to the process!\n {}", e.message()),
+    };
     // setup re-used vars
-    let HANDLE = H.unwrap_or_default();
-    let start_address = unsafe{ &*(scan_result.start_address as *const c_void) };
+    //let HANDLE = H.unwrap_or_default();
+    let start_address = scan_result.start_address as *const c_void ;
+    dbg!(start_address);
     let size = usize::try_from(scan_result.size).unwrap();
     let mut vprotect = PAGE_PROTECTION_FLAGS::default();
     let ptr_vprotect = &mut vprotect as *mut PAGE_PROTECTION_FLAGS;
-    let mut bytes_buffer = vec!['0', '0', '0'];
-    let ptr_bytes_buffer = bytes_buffer.as_mut_ptr() as *mut c_void;
-    //let number_of_bytes_read:Option<*mut usize> = None;
+    let mut bytes_buffer: [u8; 64] = [0; 64];
+    let mut number_of_bytes_read: usize = 0;
     // [2] Virtual protect ex
     println!("vprotect 1");
-    unsafe { VirtualProtectEx(HANDLE, start_address, size, PAGE_EXECUTE_READWRITE, ptr_vprotect);}
+    //unsafe { VirtualProtectEx(HANDLE, start_address, size, PAGE_EXECUTE_READWRITE, ptr_vprotect);}
     // [3] Read process memory
     println!("vprotect 2");
 
-    //unsafe { ReadProcessMemory(HANDLE, start_address, ptr_bytes_buffer, size, None) };
+    if unsafe { ReadProcessMemory(HANDLE, start_address, bytes_buffer.as_mut_ptr().cast(), 64, Some(&mut number_of_bytes_read)) } == false{
+        println!("Failed to RPM. Last OS error: {:?}\n", unsafe{ GetLastError()});
+    }
     // [4] Virtual protext ex (restore)
     println!("vprotect 3");
+    println!("bytes: {:X?}", bytes_buffer);
 
-    unsafe { VirtualProtectEx(HANDLE, start_address, size, vprotect, ptr_vprotect);}
+    //unsafe { VirtualProtectEx(HANDLE, start_address, size, vprotect, ptr_vprotect);}
     println!("vprotect 4");
     
     //println!("bytes read: {:?}\n", number_of_bytes_read.unwrap());
@@ -155,7 +163,8 @@ pub  fn start(target: Target) -> Result<ScanResult, ScanError>{
     for chunk in &memory_chunks{
         scanner.run(&chunk);
     }
-
+    unsafe { CloseHandle(HANDLE); }
+    println!("Last OS error: {:?}\n", unsafe{ GetLastError()});
     Ok(scan_result)
 }
 

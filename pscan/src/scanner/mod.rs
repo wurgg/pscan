@@ -11,10 +11,13 @@ use windows::Win32::Foundation::CloseHandle;
 use windows::Win32::Foundation::GetLastError;
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::Diagnostics::ToolHelp::MODULEENTRY32;
+use windows::Win32::System::Memory::MEMORY_BASIC_INFORMATION;
 use windows::Win32::System::Memory::PAGE_EXECUTE_READWRITE;
 use windows::Win32::System::Memory::PAGE_PROTECTION_FLAGS;
 use windows::Win32::System::Memory::VirtualProtectEx;
+use windows::Win32::System::Memory::VirtualQueryEx;
 use core::ffi::c_void;
+use std::mem;
 
 mod algo1;
 mod bruteforce;
@@ -128,29 +131,26 @@ pub  fn start(target: Target) -> Result<ScanResult, ScanError>{
         Err(e) => panic!("Failed to get handle to the process!\n {}", e.message()),
     };
     // setup re-used vars
-    //let HANDLE = H.unwrap_or_default();
-    let start_address = scan_result.start_address as *const c_void ;
-    dbg!(start_address);
-    let size = usize::try_from(scan_result.size).unwrap();
+    let start_address = scan_result.start_address as *const c_void;
     let mut vprotect = PAGE_PROTECTION_FLAGS::default();
     let ptr_vprotect = &mut vprotect as *mut PAGE_PROTECTION_FLAGS;
-    let mut bytes_buffer: [u8; 64] = [0; 64];
+    let mut bytes_buffer: [u8; 4096] = [0; 4096];
     let mut number_of_bytes_read: usize = 0;
-    // [2] Virtual protect ex
-    println!("vprotect 1");
-    //unsafe { VirtualProtectEx(HANDLE, start_address, size, PAGE_EXECUTE_READWRITE, ptr_vprotect);}
-    // [3] Read process memory
-    println!("vprotect 2");
+    let mut mbi: MEMORY_BASIC_INFORMATION = MEMORY_BASIC_INFORMATION::default();
 
-    if unsafe { ReadProcessMemory(HANDLE, start_address, bytes_buffer.as_mut_ptr().cast(), 64, Some(&mut number_of_bytes_read)) } == false{
+    unsafe{ VirtualQueryEx(HANDLE, Some(start_address), &mut mbi as *mut MEMORY_BASIC_INFORMATION, mem::size_of::<MEMORY_BASIC_INFORMATION>()) };
+    println!("mbi region size: {}", mbi.RegionSize);
+    // [2] Virtual protect ex
+    unsafe { VirtualProtectEx(HANDLE, start_address, mbi.RegionSize, PAGE_EXECUTE_READWRITE, ptr_vprotect);}
+    // [3] Read process memory
+
+    if unsafe { ReadProcessMemory(HANDLE, start_address, bytes_buffer.as_mut_ptr().cast(), mbi.RegionSize, Some(&mut number_of_bytes_read)) } == false{
         println!("Failed to RPM. Last OS error: {:?}\n", unsafe{ GetLastError()});
     }
     // [4] Virtual protext ex (restore)
-    println!("vprotect 3");
-    println!("bytes: {:X?}", bytes_buffer);
+    println!("bytes: {:02X?}", bytes_buffer);
 
-    //unsafe { VirtualProtectEx(HANDLE, start_address, size, vprotect, ptr_vprotect);}
-    println!("vprotect 4");
+    unsafe { VirtualProtectEx(HANDLE, start_address, mbi.RegionSize, vprotect, ptr_vprotect);}
     
     //println!("bytes read: {:?}\n", number_of_bytes_read.unwrap());
     // construct data chunks

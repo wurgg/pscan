@@ -36,7 +36,7 @@ pub struct ScanResult {
     pub mask: String,
     pub pattern_found: bool,
     pub pattern_found_at: usize,
-    pub size: u32,
+    pub size: usize,
     pub start_address: usize,
     pub end_address: usize,
     pub bytes_scanned: u32,
@@ -84,7 +84,7 @@ impl ScanResult{
             println!("base:  {:?}", me32.modBaseAddr);
             self.start_address = me32.modBaseAddr as usize;
             println!("size: {}",   me32.modBaseSize, );
-            self.size = me32.modBaseSize;
+            self.size = me32.modBaseSize as usize;
             println!("base + size: {:?}", unsafe{ me32.modBaseAddr.offset(me32.modBaseSize.try_into().unwrap())});
             self.end_address = unsafe { me32.modBaseAddr.offset(me32.modBaseSize.try_into().unwrap())}  as usize;
             },
@@ -104,7 +104,7 @@ impl ScanResult{
 
 // All scanners must impl a scan function and a method to identify the scan method being used
 pub trait Scanner {
-    fn run(&self, value: &str);
+    fn run(&self, value: [u8; 4096]);
 }
 
 fn init_scanner(method: &Method) -> Box<dyn Scanner>{
@@ -138,31 +138,42 @@ pub  fn start(target: Target) -> Result<ScanResult, ScanError>{
     let mut number_of_bytes_read: usize = 0;
     let mut mbi: MEMORY_BASIC_INFORMATION = MEMORY_BASIC_INFORMATION::default();
 
+    // populate our mbi
     unsafe{ VirtualQueryEx(HANDLE, Some(start_address), &mut mbi as *mut MEMORY_BASIC_INFORMATION, mem::size_of::<MEMORY_BASIC_INFORMATION>()) };
-    println!("mbi region size: {}", mbi.RegionSize);
-    // [2] Virtual protect ex
-    unsafe { VirtualProtectEx(HANDLE, start_address, mbi.RegionSize, PAGE_EXECUTE_READWRITE, ptr_vprotect);}
-    // [3] Read process memory
-
-    if unsafe { ReadProcessMemory(HANDLE, start_address, bytes_buffer.as_mut_ptr().cast(), mbi.RegionSize, Some(&mut number_of_bytes_read)) } == false{
-        println!("Failed to RPM. Last OS error: {:?}\n", unsafe{ GetLastError()});
-    }
-    // [4] Virtual protext ex (restore)
-    println!("bytes: {:02X?}", bytes_buffer);
-
-    unsafe { VirtualProtectEx(HANDLE, start_address, mbi.RegionSize, vprotect, ptr_vprotect);}
+    println!("mbi region size: {} / 0x{:X}", mbi.RegionSize, mbi.RegionSize);
+   
     
-    //println!("bytes read: {:?}\n", number_of_bytes_read.unwrap());
-    // construct data chunks
-    let memory_chunks = vec!["1", "2", "3"];
+
+    let mut current_chunk = scan_result.start_address;
+    dbg!(scan_result.start_address);
+    dbg!(scan_result.start_address + mbi.RegionSize);
+    dbg!(scan_result.size);
 
     // init scanner
     let scanner = init_scanner(&scan_result.method);
 
-    // scan chunks
-    for chunk in &memory_chunks{
-        scanner.run(&chunk);
+
+    // loop memory chunks
+    let mut counter = 0;
+    while current_chunk < scan_result.start_address + scan_result.size {
+        counter += 1;
+        println!("\n[{}] current_chunk: {:02X?}\n", counter, current_chunk);
+         // [2] Virtual protect ex
+        unsafe { VirtualProtectEx(HANDLE, start_address, mbi.RegionSize, PAGE_EXECUTE_READWRITE, ptr_vprotect);}
+        // [3] Read process memory
+
+        if unsafe { ReadProcessMemory(HANDLE, current_chunk as *mut c_void, bytes_buffer.as_mut_ptr().cast(), mbi.RegionSize, Some(&mut number_of_bytes_read)) } == false{
+        println!("Failed to RPM. Last OS error: {:?}\n", unsafe{ GetLastError()});
+        }
+        // [4] Virtual protext ex (restore)
+        //println!("bytes: {:02X?}", bytes_buffer);
+    unsafe { VirtualProtectEx(HANDLE, start_address, mbi.RegionSize, vprotect, ptr_vprotect);}
+        scanner.run(bytes_buffer);
+        current_chunk += mbi.RegionSize;
     }
+    println!("loop done.");
+
+
     unsafe { CloseHandle(HANDLE); }
     println!("Last OS error: {:?}\n", unsafe{ GetLastError()});
     Ok(scan_result)

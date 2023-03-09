@@ -18,22 +18,113 @@ use windows::Win32::System::Memory::VirtualProtectEx;
 use windows::Win32::System::Memory::VirtualQueryEx;
 use core::ffi::c_void;
 use std::mem;
-
+use std::str::FromStr;
+use std::fmt;
 mod algo1;
 mod bruteforce;
 
+
+
 #[derive(Debug)]
 pub struct ScanError {
-    pub Error: String
+    pub error: String
 }
+
+impl ScanError {
+    pub fn new(error: String) -> Self{
+        Self { error }
+    }
+}
+
+pub enum PatternByte {
+    Byte(u8),
+    Any,
+}
+
+impl FromStr for PatternByte {
+    type Err = ScanError;
+    /// Create an instance of [`PatternByte`] from a string.
+    ///
+    /// This string should either be a hexadecimal byte, or a "?". Will return an error if the
+    /// string is not a "?", or it cannot be converted into an 8-bit integer when interpreted as
+    /// hexadecimal.
+    fn from_str(s: &str) -> Result<Self, ScanError> {
+        if s == "?" {
+            Ok(Self::Any)
+        } else {
+            let n = match u8::from_str_radix(s, 16) {
+                Ok(n) => Ok(n),
+                Err(e) => Err(ScanError::new(format!("from_str_radix failed: {}", e))),
+            }?;
+
+            Ok(Self::Byte(n))
+        }
+    }
+}
+
+impl PartialEq<u8> for PatternByte {
+    fn eq(&self, other: &u8) -> bool {
+        match self {
+            PatternByte::Any => true,
+            PatternByte::Byte(b) => b == other,
+        }
+    }
+}
+
+impl fmt::Display for PatternByte {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PatternByte::Any => write!(f, "?"),
+            PatternByte::Byte(b) => write!(f, "{}", b),
+        }
+    }
+}
+
+pub struct Pattern {
+    bytes: Vec<PatternByte>,
+}
+
+impl Pattern {
+    pub fn new(bytes: Vec<PatternByte>) -> Self {
+        Self { bytes }
+    }
+
+    pub fn len(&self)-> usize{
+        self.bytes.len()
+    }
+
+    pub fn to_str(&self) -> String {
+        let mut output = Vec::new();
+        for i in 0..self.len(){
+            output.push(self.bytes[i].to_string());
+        }
+        output.into_iter().collect()
+    }
+}
+
+impl FromStr for Pattern {
+    type Err = ScanError;
+
+    fn from_str(s: &str) -> Result<Self, ScanError> {
+        let mut bytes = Vec::new();
+
+        for segment in s.split_ascii_whitespace() {
+            bytes.push(PatternByte::from_str(segment)?);
+        }
+
+        Ok(Self::new(bytes))
+    }
+}
+
+
+
 
 pub struct ScanResult {
     pub process_name: String,
     pub module: Option<String>,
     pub pid: u32,
     pub method: Method,
-    pub pattern: String,
-    pub mask: String,
+    pub pattern: Pattern,
     pub pattern_found: bool,
     pub pattern_found_at: usize,
     pub size: usize,
@@ -50,8 +141,7 @@ impl ScanResult{
             module: target.module,
             method: target.method,
             pid: process::get_proc_id(target.process_name),
-            pattern: target.pattern,
-            mask: target.mask,
+            pattern: Pattern::from_str(&target.pattern)?,
             pattern_found: false,
             pattern_found_at: 0,
             size: 0,
@@ -59,16 +149,17 @@ impl ScanResult{
             end_address: 0,
             bytes_scanned: 0,
         };
-            // process not found, just end the scan
+        // process not found, just end the scan
         if result.pid == 0 {
             println!("Scan failed: Could not find process by the name of: {}", result.process_name);
-            return Err( ScanError { Error: String::from("Could not find the process with the specified name.") });
+            return Err(ScanError::new(String::from("Could not find the process with the specified name.")) );
          }
-        
+        println!("pid g2g");
         match result.get_scan_range() {
             Ok(res) => return Ok(res), 
-            Err(e) => return Err(ScanError { Error: String::from(e.error) }),
+            Err(e) => return Err(ScanError::new(String::from(e.error))),
         }
+        println!("scan range g2g");
     }
 
     fn get_scan_range(mut self) -> Result<ScanResult, ProcessError> {
@@ -102,9 +193,10 @@ impl ScanResult{
     }
 }
 
+
 // All scanners must impl a scan function and a method to identify the scan method being used
 pub trait Scanner {
-    fn run(&self, value: [u8; 4096]);
+    fn run(&self, value: [u8; 4096], pattern: &Pattern);
 }
 
 fn init_scanner(method: &Method) -> Box<dyn Scanner>{
@@ -167,8 +259,8 @@ pub  fn start(target: Target) -> Result<ScanResult, ScanError>{
         }
         // [4] Virtual protext ex (restore)
         //println!("bytes: {:02X?}", bytes_buffer);
-    unsafe { VirtualProtectEx(HANDLE, start_address, mbi.RegionSize, vprotect, ptr_vprotect);}
-        scanner.run(bytes_buffer);
+        unsafe { VirtualProtectEx(HANDLE, start_address, mbi.RegionSize, vprotect, ptr_vprotect);}
+        scanner.run(bytes_buffer, &scan_result.pattern);
         current_chunk += mbi.RegionSize;
     }
     println!("loop done.");

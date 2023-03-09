@@ -6,13 +6,12 @@ use scan_type::Method;
 use scanner::ScanError;
 
 
-pub fn new(process_name: String, pattern: String, mask: String) -> Target {
+pub fn new(process_name: String, pattern: String) -> Target {
     Target{
         process_name,
         module: None,
         method: Method::Bruteforce,
         pattern,
-        mask,
     }
 }
 
@@ -21,7 +20,6 @@ pub struct Target {
    pub method: Method,
    pub module: Option<String>,
    pub pattern: String,
-   pub mask: String,
 }
 
 impl Target {

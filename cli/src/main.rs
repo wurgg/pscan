@@ -4,7 +4,7 @@ fn main() {
     // println!("You pressed: {}", input);
 
     println!("Scan started...");
-    let res = pscan::new(String::from("Notepad.exe"), String::from("10 ? 30"))
+    let res = pscan::new(String::from("Notepad.exe"), String::from("94 28 BF F5"))
     .module(String::from("Notepad.exe"))
     .scan();
 

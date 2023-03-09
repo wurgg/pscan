@@ -74,8 +74,8 @@ impl PartialEq<u8> for PatternByte {
 impl fmt::Display for PatternByte {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            PatternByte::Any => write!(f, "?"),
-            PatternByte::Byte(b) => write!(f, "{}", b),
+            PatternByte::Any => write!(f, "?? "),
+            PatternByte::Byte(b) => write!(f, "{:2X} ", b),
         }
     }
 }
@@ -159,7 +159,6 @@ impl ScanResult{
             Ok(res) => return Ok(res), 
             Err(e) => return Err(ScanError::new(String::from(e.error))),
         }
-        println!("scan range g2g");
     }
 
     fn get_scan_range(mut self) -> Result<ScanResult, ProcessError> {
@@ -196,7 +195,7 @@ impl ScanResult{
 
 // All scanners must impl a scan function and a method to identify the scan method being used
 pub trait Scanner {
-    fn run(&self, value: [u8; 4096], pattern: &Pattern);
+    fn run(&self, value: [u8; 4096], pattern: &Pattern, chunk: &usize);
 }
 
 fn init_scanner(method: &Method) -> Box<dyn Scanner>{
@@ -249,7 +248,7 @@ pub  fn start(target: Target) -> Result<ScanResult, ScanError>{
     let mut counter = 0;
     while current_chunk < scan_result.start_address + scan_result.size {
         counter += 1;
-        println!("\n[{}] current_chunk: {:02X?}\n", counter, current_chunk);
+        //println!("\n[{}] current_chunk: {:02X?}\n", counter, current_chunk);
          // [2] Virtual protect ex
         unsafe { VirtualProtectEx(HANDLE, start_address, mbi.RegionSize, PAGE_EXECUTE_READWRITE, ptr_vprotect);}
         // [3] Read process memory
@@ -260,7 +259,7 @@ pub  fn start(target: Target) -> Result<ScanResult, ScanError>{
         // [4] Virtual protext ex (restore)
         //println!("bytes: {:02X?}", bytes_buffer);
         unsafe { VirtualProtectEx(HANDLE, start_address, mbi.RegionSize, vprotect, ptr_vprotect);}
-        scanner.run(bytes_buffer, &scan_result.pattern);
+        scanner.run(bytes_buffer, &scan_result.pattern, &current_chunk);
         current_chunk += mbi.RegionSize;
     }
     println!("loop done.");

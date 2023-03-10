@@ -1,4 +1,5 @@
 use crate::scanner::*;
+use crate::types::pattern::*;
 
 
 

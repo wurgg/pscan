@@ -1,10 +1,11 @@
 // expose functions to perform a scan etc.
+mod types;
 mod scanner;
 mod process;
-pub mod scan_type;
-use scan_type::Method;
-use scanner::ScanError;
 
+use types::scan_method::Method;
+use types::error::ScanError;
+use types::scan_result::ScanResult;
 
 pub fn new(process_name: String, pattern: String) -> Target {
     Target{
@@ -23,7 +24,7 @@ pub struct Target {
 }
 
 impl Target {
-    pub fn scan(self) -> Result<scanner::ScanResult, ScanError> {
+    pub fn scan(self) -> Result<ScanResult, ScanError> {
         scanner::start(self)
     }
 

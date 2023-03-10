@@ -4,6 +4,9 @@ use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::Diagnostics::ToolHelp::{PROCESSENTRY32, MODULEENTRY32, TH32CS_SNAPPROCESS, Process32First, Process32Next, Module32First, Module32Next, CreateToolhelp32Snapshot, CREATE_TOOLHELP_SNAPSHOT_FLAGS, Toolhelp32ReadProcessMemory, TH32CS_SNAPMODULE};
 use windows::Win32::System::Threading::{PROCESS_ALL_ACCESS, OpenProcess};
 use std::ffi::c_void;
+use crate::types;
+use crate::types::scan_result::ScanResult;
+
 
 // Errors
 pub struct ProcessError {
@@ -129,6 +132,37 @@ pub fn get_handle(pid: u32) -> Result<HANDLE, windows::core::Error> {
     unsafe {
         return OpenProcess(PROCESS_ALL_ACCESS, false, pid);
     }
+}
+
+pub fn get_scan_range(result: ScanResult) -> Result<ScanResult, ProcessError> {
+    // Is there a module provided?
+    let mut res = result;
+    if res.module.is_some() {
+        // Yes, let's unwrap
+        let mod_name = res.module.clone().unwrap();
+        println!("Looking for module [{}] within process [{} ({})]", mod_name, res.process_name, res.pid);
+        // Get module
+        match get_module(&res.pid, &mod_name) {
+            Ok(me32) => {
+            // Get Scan range (addresses)
+            println!("base:  {:?}", me32.modBaseAddr);
+            res.start_address = me32.modBaseAddr as usize;
+            println!("size: {}",   me32.modBaseSize, );
+            res.size = me32.modBaseSize as usize;
+            println!("base + size: {:?}", unsafe{ me32.modBaseAddr.offset(me32.modBaseSize.try_into().unwrap())});
+            res.end_address = unsafe { me32.modBaseAddr.offset(me32.modBaseSize.try_into().unwrap())}  as usize;
+            },
+            Err(e) => {
+                println!("Scan failed: {}", e.error);    
+                return Err(e);
+            },
+        }
+    }
+    else {
+        print!("No module was specified...\n");
+        // figure out entire proc size?
+    }
+        Ok(res)
 }
 
 // Read process memory

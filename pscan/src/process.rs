@@ -1,10 +1,9 @@
-use windows::Win32::Foundation::{CHAR, CloseHandle, GetLastError};
-use windows::Win32::Foundation::{HANDLE, BOOL, INVALID_HANDLE_VALUE};
+use windows::Win32::Foundation::CloseHandle;
+use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
-use windows::Win32::System::Diagnostics::ToolHelp::{PROCESSENTRY32, MODULEENTRY32, TH32CS_SNAPPROCESS, Process32First, Process32Next, Module32First, Module32Next, CreateToolhelp32Snapshot, CREATE_TOOLHELP_SNAPSHOT_FLAGS, Toolhelp32ReadProcessMemory, TH32CS_SNAPMODULE};
+use windows::Win32::System::Diagnostics::ToolHelp::{PROCESSENTRY32, MODULEENTRY32, TH32CS_SNAPPROCESS, Process32Next, Module32Next, TH32CS_SNAPMODULE};
 use windows::Win32::System::Threading::{PROCESS_ALL_ACCESS, OpenProcess};
 use std::ffi::c_void;
-use crate::types;
 use crate::types::scan_result::ScanResult;
 
 
@@ -19,7 +18,7 @@ pub fn get_proc_id(proc_name: String) -> u32 {
     let mut proc_id: u32 = 0;
 
     // Create snap of all processes
-    let mut h_snap = windows::Win32::System::Diagnostics::ToolHelp::CreateToolhelp32Snapshot(
+    let h_snap = windows::Win32::System::Diagnostics::ToolHelp::CreateToolhelp32Snapshot(
         TH32CS_SNAPPROCESS,
         0,
     );

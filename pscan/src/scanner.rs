@@ -1,16 +1,10 @@
-#![feature(pointer_byte_offsets)]
 use crate::Target;
-use crate::process;
-use crate::process::ProcessError;
 use crate::process::get_handle;
-use crate::process::get_module;
-use crate::types::*;
 use algo1::Algo1;
 use bruteforce::Bruteforce;
 use windows::Win32::Foundation::CloseHandle;
 use windows::Win32::Foundation::GetLastError;
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
-use windows::Win32::System::Diagnostics::ToolHelp::MODULEENTRY32;
 use windows::Win32::System::Memory::MEMORY_BASIC_INFORMATION;
 use windows::Win32::System::Memory::PAGE_EXECUTE_READWRITE;
 use windows::Win32::System::Memory::PAGE_PROTECTION_FLAGS;
@@ -18,8 +12,6 @@ use windows::Win32::System::Memory::VirtualProtectEx;
 use windows::Win32::System::Memory::VirtualQueryEx;
 use core::ffi::c_void;
 use std::mem;
-use std::str::FromStr;
-use std::fmt;
 
 pub mod algo1;
 pub mod bruteforce;
@@ -73,8 +65,6 @@ pub fn start(target: Target) -> Result<ScanResult, ScanError>{
     unsafe{ VirtualQueryEx(HANDLE, Some(start_address), &mut mbi as *mut MEMORY_BASIC_INFORMATION, mem::size_of::<MEMORY_BASIC_INFORMATION>()) };
     println!("mbi region size: {} / 0x{:X}", mbi.RegionSize, mbi.RegionSize);
    
-    
-
     let mut current_chunk = scan_result.start_address;
     dbg!(scan_result.start_address);
     dbg!(scan_result.start_address + mbi.RegionSize);
@@ -102,7 +92,7 @@ pub fn start(target: Target) -> Result<ScanResult, ScanError>{
         scanner.run(bytes_buffer, &scan_result.pattern, &current_chunk);
         current_chunk += mbi.RegionSize;
     }
-    println!("loop done.");
+    println!("{} iterations completed. loop done.", counter);
 
 
     unsafe { CloseHandle(HANDLE); }

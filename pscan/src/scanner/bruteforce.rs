@@ -15,11 +15,7 @@ impl Scanner for Bruteforce{
                 match pattern.bytes[j] {
                     PatternByte::Any => {},
                     PatternByte::Byte(b) => {
-                        //println!("trying {:2X} : {:2X}\n", value[i+j], b);
-                        if value[i+j] == b{
-                            //println!("matched {:2X} : {:2X} @ {:2X}", value[i+j], b, chunk+i+j);
-                        }
-                        else {
+                        if value[i+j] != b{
                             found = false;
                             break;
                         }

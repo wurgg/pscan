@@ -1,9 +1,7 @@
 use windows::Win32::Foundation::CloseHandle;
 use windows::Win32::Foundation::HANDLE;
-use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::Diagnostics::ToolHelp::{PROCESSENTRY32, MODULEENTRY32, TH32CS_SNAPPROCESS, Process32Next, Module32Next, TH32CS_SNAPMODULE};
 use windows::Win32::System::Threading::{PROCESS_ALL_ACCESS, OpenProcess};
-use std::ffi::c_void;
 use crate::types::scan_result::ScanResult;
 
 
@@ -175,11 +173,7 @@ BOOL ReadProcessMemory(
     [out] SIZE_T  *lpNumberOfBytesRead
   );*/
 // output: bytes read
-pub fn read_memory(handle: HANDLE, lpbaseaddress: *const c_void, lpbuffer: *mut c_void, nsize: usize, lpnumberofbytesread:Option<*mut usize>) -> () {
-    unsafe {
-        ReadProcessMemory(handle, lpbaseaddress, lpbuffer, nsize, lpnumberofbytesread);
-    }
-}
+
 
 // Write to process memory
 /*
@@ -191,6 +185,4 @@ BOOL WriteProcessMemory(
   [out] SIZE_T  *lpNumberOfBytesWritten
 );
  */
-pub fn write_memory() -> () {
-    todo!()
-}
+

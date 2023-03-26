@@ -9,4 +9,4 @@ example usage:
     .module(String::from("Notepad.exe"))
     .scan();
 
-This lib is extensible and you can add your own algorhythm to find the pattern match. You are handed a block of memory and you can feed that to your algorhythm. Check out https://github.com/wurgg/pscan/blob/main/pscan/src/scanner/bruteforce.rs for the brute force implementation. All algorhythm "scanners" must implement the run trait.There is a blank template algorhythm you can use to get up and running located here: https://github.com/wurgg/pscan/blob/main/pscan/src/scanner/algo1.rs
+This lib is extensible and you can add your own algorhythm to find the pattern match. You are handed a block of memory and you can feed that to your algorhythm. Check out pscan/src/scanner/bruteforce.rs for the brute force implementation. All algorhythm "scanners" must implement the run trait.There is a blank template algorhythm you can use to get up and running located here: pscan/src/scanner/algo1.rs

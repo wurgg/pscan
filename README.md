@@ -8,3 +8,5 @@ example usage:
     let res = pscan::new(String::from("Notepad.exe"), String::from("94 28 ? ?"))
     .module(String::from("Notepad.exe"))
     .scan();
+
+This lib is extensible and you can add your own algorhythm to find the pattern match. You are handed a block of memory and you can feed that to your algorhythm. Check out https://github.com/wurgg/pscan/blob/main/pscan/src/scanner/bruteforce.rs for the brute force implementation. All algorhythm "scanners" must implement the run trait.There is a blank template algorhythm located here: https://github.com/wurgg/pscan/blob/main/pscan/src/scanner/algo1.rs
